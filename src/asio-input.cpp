@@ -270,8 +270,14 @@ public:
 
 		int useTimeSlice()
 		{
+			// These states are temporary: disconnect()/device_disconnect() have matching
+			// reconnect paths (see audioDeviceAboutToStart), and deliberate teardown always
+			// goes through remove_client(). Returning a negative value here would make
+			// JUCE's TimeSliceThread remove this client PERMANENTLY, so a transient device
+			// stop/start (e.g. an ASIO driver reset) would silence the source forever.
+			// Stay subscribed and check again shortly instead.
 			if ((active & client_mask) == 0 || (active & device_mask) == 0 || callback != current_callback)
-				return -1;
+				return wait_time;
 			int write_index = callback->write_index();
 			if (read_index == write_index)
 				return wait_time;
