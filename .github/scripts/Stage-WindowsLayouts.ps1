@@ -54,7 +54,7 @@ $modern = Join-Path $StagingDirectory 'modern'
 $legacyDll = Join-Path $legacy "obs-plugins/$architecture/obs-asio.dll"
 $legacyData = Join-Path $legacy 'data/obs-plugins/obs-asio'
 $modernDll = Join-Path $modern 'plugins/obs-asio/obs-asio.dll'
-$modernData = Join-Path $modern 'plugins/obs-asio/data'
+$modernData = Join-Path $modern 'plugins/obs-asio'
 
 $stageCreated = $false
 try {
@@ -85,7 +85,8 @@ try {
     }
 
     foreach ($destination in @($legacyData, $modernData)) {
-        $stagedResources = @(Get-ChildItem -LiteralPath $destination -File -Recurse -Force)
+        $resourceRoot = if ($destination -eq $modernData) { Join-Path $destination 'data' } else { $destination }
+        $stagedResources = @(Get-ChildItem -LiteralPath $resourceRoot -File -Recurse -Force)
         if ($stagedResources.Count -ne $resourceFiles.Count) {
             throw "Resource file count mismatch in: $destination"
         }
