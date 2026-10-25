@@ -1,12 +1,18 @@
+; OBS-ASIO version-aware Inno Setup Windows installer
+; Supports registered and portable OBS installations with version-specific plugin layouts.
+; CMake must configure @...@ placeholders; ISCC needs /DStageRoot=... and /DSourceRoot=... .
 #define MyAppName "@CMAKE_PROJECT_NAME@"
 #define MyAppVersion "@CMAKE_PROJECT_VERSION@"
 #define MyAppPublisher "@PLUGIN_AUTHOR@"
 #define MyAppURL "https://github.com/Andersama/obs-asio"
+#ifndef StageRoot
+  #error StageRoot must be supplied to ISCC using /DStageRoot=...
+#endif
+#ifndef SourceRoot
+  #error SourceRoot must be supplied to ISCC using /DSourceRoot=...
+#endif
 
 [Setup]
-; NOTE: The value of AppId uniquely identifies this application.
-; Do not use the same AppId value in installers for other applications.
-; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
 AppId={{77AFA351-2AD0-4997-BBA8-1B1285074A8A
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
@@ -15,25 +21,128 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={code:GetDirName}
-DefaultGroupName={#MyAppName}
+UsePreviousAppDir=no
 OutputBaseFilename={#MyAppName}-{#MyAppVersion}-Windows-Installer
 Compression=lzma
 SolidCompression=yes
 DirExistsWarning=no
+DisableProgramGroupPage=yes
+; Portable targets create neither uninstaller nor Windows uninstall registration.
+Uninstallable=IsManagedInstall
+CreateUninstallRegKey=IsManagedInstall
+; Existing AppId is retained for compatibility with upstream managed installations.
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "..\release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\LICENSE"; Flags: dontcopy
-; NOTE: Don't use "Flags: ignoreversion" on any shared system files
-
-[Icons]
-Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}"; Filename: "{#MyAppURL}"
-Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+; Legacy (OBS 28.0.1 through 32.x) — registered or custom/portable, under selected OBS root.
+Source: "{#StageRoot}\legacy\obs-plugins\64bit\obs-asio.dll"; DestDir: "{app}\obs-plugins\64bit"; Flags: ignoreversion; Check: UseLegacy
+Source: "{#StageRoot}\legacy\data\obs-plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{app}\data\obs-plugins\obs-asio\data\locale"; Flags: ignoreversion; Check: UseLegacy
+; Modern registered (OBS 33+) — OBS' shared ProgramData plugin directory.
+Source: "{#StageRoot}\modern\plugins\obs-asio\obs-asio.dll"; DestDir: "{commonappdata}\obs-studio\plugins\obs-asio"; Flags: ignoreversion; Check: UseModernRegistered
+Source: "{#StageRoot}\modern\plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{commonappdata}\obs-studio\plugins\obs-asio\data\locale"; Flags: ignoreversion; Check: UseModernRegistered
+; Modern custom/portable (OBS 33+) — selected OBS root.
+Source: "{#StageRoot}\modern\plugins\obs-asio\obs-asio.dll"; DestDir: "{app}\plugins\obs-asio"; Flags: ignoreversion; Check: UseModernPortable
+Source: "{#StageRoot}\modern\plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{app}\plugins\obs-asio\data\locale"; Flags: ignoreversion; Check: UseModernPortable
+Source: "{#SourceRoot}\LICENSE"; Flags: dontcopy
 
 [Code]
+var
+  RegisteredObsRoot: String;
+  HasRegisteredObsRoot: Boolean;
+
+function NormalizedPath(const Path: String): String;
+begin
+  Result := RemoveBackslash(ExpandFileName(Path));
+end;
+
+function IsSameRoot(const Left, Right: String): Boolean;
+begin
+  Result := CompareText(NormalizedPath(Left), NormalizedPath(Right)) = 0;
+end;
+
+function ValidateObsRoot(const Root: String; var Major: Word; var ErrorText: String): Boolean;
+var
+  Minor, Revision, Build: Word;
+  ObsExe: String;
+begin
+  Result := False;
+  ErrorText := '';
+  Major := 0;
+  ObsExe := AddBackslash(Root) + 'bin\64bit\obs64.exe';
+  if not FileExists(ObsExe) then
+  begin
+    ErrorText := 'The selected directory does not contain bin\64bit\obs64.exe.';
+    Exit;
+  end;
+  if not GetVersionComponents(ObsExe, Major, Minor, Revision, Build) then
+  begin
+    ErrorText := 'The OBS executable has no readable numeric file version.';
+    Exit;
+  end;
+  // OBS SDK 28.0.1 baseline: reject versions older than 28.0.1.
+  // OBS 33+ uses the modern layout; this does not guarantee future ABI compatibility.
+  if (Major < 28) or ((Major = 28) and (Minor = 0) and (Revision < 1)) then
+  begin
+    ErrorText := 'OBS Studio 28.0.1 or newer is required. Detected: ' +
+      IntToStr(Major) + '.' + IntToStr(Minor) + '.' + IntToStr(Revision) + '.' + IntToStr(Build) + '.';
+    Exit;
+  end;
+  Result := True;
+end;
+
+function CurrentObsMajor: Word;
+var
+  Explanation: String;
+begin
+  Result := 0;
+  ValidateObsRoot(WizardDirValue(), Result, Explanation);
+end;
+
+function IsManagedInstall: Boolean;
+var
+  Major: Word;
+  Explanation: String;
+begin
+  Result := HasRegisteredObsRoot and
+    IsSameRoot(WizardDirValue(), RegisteredObsRoot) and
+    ValidateObsRoot(WizardDirValue(), Major, Explanation);
+end;
+
+function UseLegacy: Boolean;
+begin
+  Result := (CurrentObsMajor >= 28) and (CurrentObsMajor < 33);
+end;
+
+function UseModernRegistered: Boolean;
+begin
+  Result := (CurrentObsMajor >= 33) and IsManagedInstall;
+end;
+
+function UseModernPortable: Boolean;
+begin
+  Result := (CurrentObsMajor >= 33) and not IsManagedInstall;
+end;
+
+function GetDirName(Value: String): String;
+var
+  Candidate: String;
+  Major: Word;
+  Explanation: String;
+begin
+  Result := ExpandConstant('{autopf}\obs-studio');
+  HasRegisteredObsRoot := False;
+  RegisteredObsRoot := '';
+  if RegQueryStringValue(HKLM32, 'SOFTWARE\OBS Studio', '', Candidate) and
+     ValidateObsRoot(Candidate, Major, Explanation) then
+  begin
+    RegisteredObsRoot := NormalizedPath(Candidate);
+    HasRegisteredObsRoot := True;
+    Result := RegisteredObsRoot;
+  end;
+end;
+
 procedure InitializeWizard();
 var
   GPLText: AnsiString;
@@ -42,34 +151,19 @@ begin
   ExtractTemporaryFile('LICENSE');
   LoadStringFromFile(ExpandConstant('{tmp}\LICENSE'), GPLText);
   Page := CreateOutputMsgMemoPage(wpWelcome,
-    'License Information', 'Please review the license terms before installing {#MyAppName}',
+    'License Information',
+    'Please review the license terms before installing {#MyAppName}',
     'Press Page Down to see the rest of the agreement. Once you are aware of your rights, click Next to continue.',
-    String(GPLText)
-  );
+    String(GPLText));
 end;
 
-// Validate that obs-studio is installed before installing the plugin
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Major: Word;
 begin
   Result := '';
-
-  if not DirExists(ExpandConstant('{app}\obs-plugins')) then
-  begin
-    Result := 'The selected install directory does not appear to be valid. Please install OBS Studio before installing {#MyAppName} or correct your install path.';
-  end;
+  if not ValidateObsRoot(WizardDirValue(), Major, Result) then
+    Exit;
+  // Existing plugin files outside the selected layout are not removed.
+  // Directory junctions and symbolic links are not resolved when comparing OBS roots.
 end;
-
-// credit where it's due :
-// following function come from https://github.com/Xaymar/obs-studio_amf-encoder-plugin/blob/master/%23Resources/Installer.in.iss#L45
-function GetDirName(Value: string): string;
-var
-  InstallPath: string;
-begin
-  // initialize default path, which will be returned when the following registry
-  // key queries fail due to missing keys or for some different reason
-  Result := '{autopf}\obs-studio';
-  // query the first registry value; if this succeeds, return the obtained value
-  if RegQueryStringValue(HKLM32, 'SOFTWARE\OBS Studio', '', InstallPath) then
-    Result := InstallPath
-end;
-
