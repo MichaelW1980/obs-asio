@@ -38,7 +38,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Files]
 ; Legacy (OBS 28.0.1 through 32.x) — registered or custom/portable, under selected OBS root.
 Source: "{#StageRoot}\legacy\obs-plugins\64bit\obs-asio.dll"; DestDir: "{app}\obs-plugins\64bit"; Flags: ignoreversion; Check: UseLegacy
-Source: "{#StageRoot}\legacy\data\obs-plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{app}\data\obs-plugins\obs-asio\data\locale"; Flags: ignoreversion; Check: UseLegacy
+Source: "{#StageRoot}\legacy\data\obs-plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{app}\data\obs-plugins\obs-asio\locale"; Flags: ignoreversion; Check: UseLegacy
 ; Modern registered (OBS 33+) — OBS' shared ProgramData plugin directory.
 Source: "{#StageRoot}\modern\plugins\obs-asio\obs-asio.dll"; DestDir: "{commonappdata}\obs-studio\plugins\obs-asio"; Flags: ignoreversion; Check: UseModernRegistered
 Source: "{#StageRoot}\modern\plugins\obs-asio\data\locale\en-US.ini"; DestDir: "{commonappdata}\obs-studio\plugins\obs-asio\data\locale"; Flags: ignoreversion; Check: UseModernRegistered
@@ -157,6 +157,47 @@ begin
     String(GPLText));
 end;
 
+// Detect installed OBS-ASIO products belonging to the managed MSI family.
+function EnumRelatedMsiProducts(UpgradeCode: String; Reserved, Index: Cardinal; ProductCodeBuffer: String): Cardinal;
+  external 'MsiEnumRelatedProductsW@msi.dll stdcall';
+function QueryMsiProductState(ProductCode: String): Integer;
+  external 'MsiQueryProductStateW@msi.dll stdcall';
+
+function InstalledObsAsioMsiExists: Boolean;
+var
+  Index, Status: Cardinal;
+  ProductCode: String;
+  NullAt: Integer;
+  State: Integer;
+begin
+  Result := False;
+  Index := 0;
+  while True do
+  begin
+    // 38 Unicode characters: {GUID} plus terminating null.
+    ProductCode := StringOfChar(#0, 39);
+    Status := EnumRelatedMsiProducts('{E8C3A1F0-0E7C-4D1B-8B63-0E58B7E2A152}', 0, Index, ProductCode);
+    if Status = 259 then
+      Exit; // ERROR_NO_MORE_ITEMS
+    if Status <> 0 then
+      RaiseException('MSI family enumeration failed (Win32 error ' + IntToStr(Status) + ').');
+    NullAt := Pos(#0, ProductCode);
+    if NullAt <> 39 then
+      RaiseException('MSI enumeration returned an invalid product-code buffer.');
+    SetLength(ProductCode, 38);
+    State := QueryMsiProductState(ProductCode);
+    Log('Related OBS-ASIO MSI: ' + ProductCode + ', state=' + IntToStr(State));
+    if (State = 3) or (State = 4) or (State = 5) then
+    begin
+      Result := True;
+      Exit;
+    end;
+    if (State <> 1) and (State <> 2) then
+      RaiseException('Unexpected state for related MSI ' + ProductCode + ': ' + IntToStr(State));
+    Index := Index + 1;
+  end;
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   Major: Word;
@@ -164,6 +205,13 @@ begin
   Result := '';
   if not ValidateObsRoot(WizardDirValue(), Major, Result) then
     Exit;
+  // Prevent simultaneous Inno and managed MSI ownership.
+  // Destination-aware portable exemption is intentionally not implemented yet.
+  if InstalledObsAsioMsiExists then
+  begin
+    Result := 'An existing managed OBS-ASIO MSI installation was detected. Uninstall it before installing this EXE.';
+    Exit;
+  end;
   // Existing plugin files outside the selected layout are not removed.
   // Directory junctions and symbolic links are not resolved when comparing OBS roots.
 end;
