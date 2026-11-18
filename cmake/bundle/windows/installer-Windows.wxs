@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="obs-asio" Manufacturer="Andersama &amp; pkv" ProductCode="{C208E056-47B4-4A46-BF75-D2D745A91AAB}" Version="3.2.1" UpgradeCode="{E8C3A1F0-0E7C-4D1B-8B63-0E58B7E2A152}" Scope="perMachine" UpgradeStrategy="none">
+    <!-- Public deployment properties; explicit values 0 or 1. -->
+    <!-- Detect managed Inno Setup registration in both machine registry views. -->
+    <Property Id="OBSASIOINNO32" Secure="yes">
+      <RegistrySearch Id="FindObsAsioInno32" Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{77AFA351-2AD0-4997-BBA8-1B1285074A8A_is1" Name="UninstallString" Type="raw" Bitness="always32" />
+    </Property>
+    <Property Id="OBSASIOINNO64" Secure="yes">
+      <RegistrySearch Id="FindObsAsioInno64" Root="HKLM" Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{77AFA351-2AD0-4997-BBA8-1B1285074A8A_is1" Name="UninstallString" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="OBSLEGACY" Value="0" Secure="yes" />
+    <Property Id="OBSPORTABLE" Value="0" Secure="yes" />
+    <!-- Separate GUI checkbox properties: unset means unchecked. -->
+    <Property Id="UIOBSLEGACY" Secure="yes" />
+    <Property Id="UIOBSPORTABLE" Secure="yes" />
+    <Property Id="WIXUI_INSTALLDIR" Value="OBSROOT" />
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="OBSROOT" Name="obs-studio">
+        <Directory Id="PORTABLE_PLUGINS_DIR" Name="plugins">
+          <Directory Id="MODERN_PORTABLE_DIR" Name="obs-asio">
+            <Component Id="ModernPortableDllComponent" Guid="*">
+              <File KeyPath="yes" Id="ModernPortableDll" Source="$(var.StageRoot)\modern\plugins\obs-asio\obs-asio.dll" />
+            </Component>
+            <Directory Id="PORTABLE_ASIO_DATA_DIR" Name="data">
+              <Directory Id="PORTABLE_ASIO_LOCALE_DIR" Name="locale">
+                <Component Id="ModernPortableLocaleComponent" Guid="*">
+                  <File KeyPath="yes" Id="ModernPortableLocale" Source="$(var.StageRoot)\modern\plugins\obs-asio\data\locale\en-US.ini" />
+                </Component>
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
+        <Directory Id="LEGACY_PLUGIN_DIR" Name="obs-plugins">
+          <Directory Id="LEGACY_64BIT_DIR" Name="64bit">
+            <Component Id="LegacyDllComponent" Guid="*">
+              <File KeyPath="yes" Id="LegacyDll" Source="$(var.StageRoot)\legacy\obs-plugins\64bit\obs-asio.dll" />
+            </Component>
+          </Directory>
+        </Directory>
+        <Directory Id="LEGACY_DATA_DIR" Name="data">
+          <Directory Id="LEGACY_DATA_PLUGINS_DIR" Name="obs-plugins">
+            <Directory Id="LEGACY_DATA_ASIO_DIR" Name="obs-asio">
+              <Directory Id="LEGACY_ASIO_LOCALE_DIR" Name="locale">
+                <Component Id="LegacyLocaleComponent" Guid="*">
+                  <File KeyPath="yes" Id="LegacyLocale" Source="$(var.StageRoot)\legacy\data\obs-plugins\obs-asio\data\locale\en-US.ini" />
+                </Component>
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="MANAGED_OBS_DIR" Name="obs-studio">
+        <Directory Id="MANAGED_PLUGINS_DIR" Name="plugins">
+          <Directory Id="MODERN_MANAGED_DIR" Name="obs-asio">
+            <Component Id="ModernManagedDllComponent" Guid="*">
+              <File KeyPath="yes" Id="ModernManagedDll" Source="$(var.StageRoot)\modern\plugins\obs-asio\obs-asio.dll" />
+            </Component>
+            <Directory Id="MANAGED_ASIO_DATA_DIR" Name="data">
+              <Directory Id="MANAGED_ASIO_LOCALE_DIR" Name="locale">
+                <Component Id="ModernManagedLocaleComponent" Guid="*">
+                  <File KeyPath="yes" Id="ModernManagedLocale" Source="$(var.StageRoot)\modern\plugins\obs-asio\data\locale\en-US.ini" />
+                </Component>
+              </Directory>
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+    <Feature Id="ModernManagedFeature" Title="Modern registered layout" Level="1" AllowAdvertise="no">
+      <ComponentRef Id="ModernManagedDllComponent" />
+      <ComponentRef Id="ModernManagedLocaleComponent" />
+    </Feature>
+    <Feature AllowAdvertise="no" Level="1" Id="ModernPortableFeature" Title="Modern portable layout">
+      <ComponentRef Id="ModernPortableDllComponent" />
+      <ComponentRef Id="ModernPortableLocaleComponent" />
+    </Feature>
+    <Feature Id="LegacyFeature" Title="Legacy layout" Level="1" AllowAdvertise="no">
+      <ComponentRef Id="LegacyDllComponent" />
+      <ComponentRef Id="LegacyLocaleComponent" />
+    </Feature>
+    <MediaTemplate EmbedCab="yes" />
+    <!-- Based on WixUI_InstallDir, with our dialog inserted after InstallDirDlg.
+         This is a separate test UI, not a modification of WixUI_InstallDir. -->
+    <UI Id="ObsAsioPrototypeUI">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Tahoma" Size="12" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Tahoma" Size="9" Bold="yes" />
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <DialogRef Id="WelcomeDlg" />
+      <DialogRef Id="ObsAsioLicenseInfoDlg" />
+      <DialogRef Id="InstallDirDlg" />
+      <DialogRef Id="BrowseDlg" />
+      <DialogRef Id="VerifyReadyDlg" />
+      <DialogRef Id="DiskCostDlg" />
+      <DialogRef Id="ErrorDlg" />
+      <DialogRef Id="FatalError" />
+      <DialogRef Id="FilesInUse" />
+      <DialogRef Id="MsiRMFilesInUse" />
+      <DialogRef Id="PrepareDlg" />
+      <DialogRef Id="ProgressDlg" />
+      <DialogRef Id="ResumeDlg" />
+      <DialogRef Id="UserExit" />
+      <DialogRef Id="MaintenanceWelcomeDlg" />
+      <DialogRef Id="MaintenanceTypeDlg" />
+      <DialogRef Id="ExitDialog" />
+      <Dialog Id="ObsAsioLicenseInfoDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}License Information" />
+        <Control Id="Description" Type="Text" X="20" Y="24" Width="330" Height="16" Transparent="yes" NoPrefix="yes" Text="OBS-ASIO is distributed under the GNU General Public License version 3." />
+        <Control Id="LicenseText" Type="ScrollableText" X="20" Y="60" Width="330" Height="162" Sunken="yes" TabSkip="no">
+          <Text SourceFile="GPL-v3-automated.rtf" />
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel" />
+      </Dialog>
+      <Dialog Id="ObsAsioOptionsDlg" Width="370" Height="270" Title="[ProductName] Setup">
+        <Control Id="TopLine" Type="Line" X="0" Y="44" Width="370" Height="0" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="340" Height="20" Transparent="yes" NoPrefix="yes" Text="{\WixUI_Font_Title}Installation Options" />
+        <Control Id="Description" Type="Text" X="20" Y="24" Width="325" Height="16" Transparent="yes" NoPrefix="yes" Text="Choose the OBS plugin layout and installation type." />
+        <Control Id="LegacyCheck" Type="CheckBox" X="25" Y="77" Width="315" Height="20" Property="UIOBSLEGACY" CheckBoxValue="1" Text="Use legacy plugin layout (OBS Studio 28.0.1–32.x)" />
+        <Control Id="PortableCheck" Type="CheckBox" X="25" Y="111" Width="315" Height="20" Property="UIOBSPORTABLE" CheckBoxValue="1" Text="Portable OBS installation" />
+        <Control Id="HelpText" Type="Text" X="25" Y="145" Width="320" Height="42" Text="Leave both boxes unchecked for a registered OBS Studio 33.0.0 or newer installation." />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="&amp;Back" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="&amp;Next" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel" />
+      </Dialog>
+      <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="ObsAsioLicenseInfoDlg" Condition="NOT Installed" />
+      <Publish Dialog="WelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Condition="Installed AND PATCH" />
+      <Publish Dialog="ObsAsioLicenseInfoDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" />
+      <Publish Dialog="ObsAsioLicenseInfoDlg" Control="Next" Event="NewDialog" Value="InstallDirDlg" />
+      <Publish Dialog="ObsAsioLicenseInfoDlg" Control="Cancel" Event="SpawnDialog" Value="CancelDlg" />
+      <Publish Dialog="InstallDirDlg" Control="Back" Event="NewDialog" Value="ObsAsioLicenseInfoDlg" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="CheckTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="3" />
+      <Publish Dialog="InstallDirDlg" Control="Next" Event="NewDialog" Value="ObsAsioOptionsDlg" Order="4" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
+      <Publish Dialog="InstallDirDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
+      <Publish Dialog="BrowseDlg" Control="OK" Event="CheckTargetPath" Value="[_BrowseProperty]" Order="1" />
+      <Publish Dialog="BrowseDlg" Control="OK" Event="SetTargetPath" Value="[_BrowseProperty]" Order="3" />
+      <Publish Dialog="BrowseDlg" Control="OK" Event="EndDialog" Value="Return" Order="4" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Back" Event="NewDialog" Value="InstallDirDlg" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Property="OBSLEGACY" Value="0" Order="1" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Property="OBSLEGACY" Value="1" Order="2" Condition="UIOBSLEGACY = &quot;1&quot;" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Property="OBSPORTABLE" Value="0" Order="3" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Property="OBSPORTABLE" Value="1" Order="4" Condition="UIOBSPORTABLE = &quot;1&quot;" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="11" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Cancel" Event="SpawnDialog" Value="CancelDlg" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="ObsAsioOptionsDlg" Order="1" Condition="NOT Installed" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2" Condition="Installed AND NOT PATCH" />
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="WelcomeDlg" Order="2" Condition="Installed AND PATCH" />
+      <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RepairButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+      <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
+      <Property Id="ARPNOMODIFY" Value="1" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="Remove" Value="ModernManagedFeature" Condition="1" Order="5" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="Remove" Value="ModernPortableFeature" Condition="1" Order="6" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="Remove" Value="LegacyFeature" Condition="1" Order="7" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="AddLocal" Value="ModernManagedFeature" Condition="UIOBSLEGACY &lt;&gt; &quot;1&quot; AND UIOBSPORTABLE &lt;&gt; &quot;1&quot;" Order="8" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="AddLocal" Value="ModernPortableFeature" Condition="UIOBSLEGACY &lt;&gt; &quot;1&quot; AND UIOBSPORTABLE = &quot;1&quot;" Order="9" />
+      <Publish Dialog="ObsAsioOptionsDlg" Control="Next" Event="AddLocal" Value="LegacyFeature" Condition="UIOBSLEGACY = &quot;1&quot;" Order="10" />
+    </UI>
+    <UIRef Id="WixUI_Common" />
+    <SetProperty Id="UIOBSLEGACY" Action="InitializeGuiLegacy" Value="1" Before="CostInitialize" Sequence="ui" Condition="NOT Installed AND OBSLEGACY = &quot;1&quot;" />
+    <SetProperty Id="UIOBSPORTABLE" Action="InitializeGuiPortable" Value="1" Before="CostInitialize" Sequence="ui" Condition="NOT Installed AND OBSPORTABLE = &quot;1&quot;" />
+    <SetProperty Id="ADDLOCAL" Action="SetSilentModernManaged" Value="ModernManagedFeature" Before="CostInitialize" Sequence="execute" Condition="NOT Installed AND UILevel &lt; 5 AND NOT ADDLOCAL AND OBSLEGACY &lt;&gt; &quot;1&quot; AND OBSPORTABLE &lt;&gt; &quot;1&quot;" />
+    <SetProperty Id="ADDLOCAL" Action="SetSilentModernPortable" Value="ModernPortableFeature" Before="CostInitialize" Sequence="execute" Condition="NOT Installed AND UILevel &lt; 5 AND NOT ADDLOCAL AND OBSLEGACY &lt;&gt; &quot;1&quot; AND OBSPORTABLE = &quot;1&quot;" />
+    <SetProperty Id="ADDLOCAL" Action="SetSilentLegacy" Value="LegacyFeature" Before="CostInitialize" Sequence="execute" Condition="NOT Installed AND UILevel &lt; 5 AND NOT ADDLOCAL AND OBSLEGACY = &quot;1&quot;" />
+    <Upgrade Id="{E8C3A1F0-0E7C-4D1B-8B63-0E58B7E2A152}">
+      <UpgradeVersion Minimum="0.0.0" IncludeMinimum="yes" Maximum="3.2.1" IncludeMaximum="no" Property="OBSASIOPROTOTYPE" OnlyDetect="yes" />
+      <UpgradeVersion Minimum="3.2.1" IncludeMinimum="yes" Property="OBSASIONEWER" OnlyDetect="yes" />
+    </Upgrade>
+    <Launch Condition="NOT OBSASIOPROTOTYPE" Message="An older OBS-ASIO MSI prototype was detected. Uninstall it before installing this production MSI." />
+    <Launch Condition="NOT OBSASIONEWER" Message="A newer or equal version is already installed." />
+    <Launch Condition="Installed OR OBSPORTABLE = &quot;1&quot; OR NOT (OBSASIOINNO32 OR OBSASIOINNO64)" Message="An existing managed OBS-ASIO EXE installation was detected. Uninstall it before installing the managed MSI." />
+    <InstallExecuteSequence>
+      <RemoveExistingProducts After="InstallInitialize" Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;" />
+      <RegisterUser Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;">
+      </RegisterUser>
+      <RegisterProduct Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;">
+      </RegisterProduct>
+      <PublishFeatures Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;">
+      </PublishFeatures>
+      <PublishProduct Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;">
+      </PublishProduct>
+      <ProcessComponents Condition="OBSPORTABLE &lt;&gt; &quot;1&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
