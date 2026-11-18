@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "application": "obs-asio",
+  "innoAppId": "{77AFA351-2AD0-4997-BBA8-1B1285074A8A}",
+  "msiUpgradeCode": "{E8C3A1F0-0E7C-4D1B-8B63-0E58B7E2A152}",
+  "msiProductCodes": {
+    "3.2.1": "{C208E056-47B4-4A46-BF75-D2D745A91AAB}"
+  },
+  "firstProductionMsiVersion": "3.2.1",
+  "prototypeUpgradePolicy": "Do not automatically upgrade historical MSI prototypes"
+}
